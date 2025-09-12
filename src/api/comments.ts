@@ -2,6 +2,10 @@ import { Comment } from '../types/Comment';
 import { client } from '../utils/fetchClient';
 
 export const getPostComments = (postId: number) => {
+  if (!postId) {
+    return Promise.resolve([]);
+  }
+
   return client.get<Comment[]>(`/comments?postId=${postId}`);
 };
 
