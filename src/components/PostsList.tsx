@@ -1,16 +1,16 @@
 import React from 'react';
 import { Post } from '../types/Post';
 
-interface Props {
+type Props = {
   posts: Post[];
-  selectedPost: Post | null;
-  onSelect: (post: Post) => void;
-}
+  selectedPostId: number | null;
+  onToggle: (postId: number) => void;
+};
 
 export const PostsList: React.FC<Props> = ({
   posts,
-  selectedPost,
-  onSelect,
+  selectedPostId,
+  onToggle,
 }) => (
   <div data-cy="PostsList">
     <p className="title">Posts:</p>
@@ -21,33 +21,33 @@ export const PostsList: React.FC<Props> = ({
           <th>#</th>
           <th>Title</th>
           {/* eslint-disable-next-line jsx-a11y/control-has-associated-label */}
-          <th> </th>
+          <th />
         </tr>
       </thead>
 
       <tbody>
-        {posts.map(post => (
-          <tr key={post.id} data-cy="Post">
-            <td data-cy="PostId">{post.id}</td>
+        {posts.map(post => {
+          const isOpen = post.id === selectedPostId;
 
-            <td data-cy="PostTitle">{post.title}</td>
+          return (
+            <tr data-cy="Post" key={post.id}>
+              <td data-cy="PostId">{post.id}</td>
 
-            <td className="has-text-right is-vcentered">
-              <button
-                type="button"
-                data-cy="PostButton"
-                className={
-                  selectedPost && selectedPost.id === post.id
-                    ? 'button is-link'
-                    : 'button is-link is-light'
-                }
-                onClick={() => onSelect(post)}
-              >
-                {selectedPost && selectedPost.id === post.id ? 'Close' : 'Open'}
-              </button>
-            </td>
-          </tr>
-        ))}
+              <td data-cy="PostTitle">{post.title}</td>
+
+              <td className="has-text-right is-vcentered">
+                <button
+                  type="button"
+                  data-cy="PostButton"
+                  className={`button is-link ${isOpen ? '' : 'is-light'}`}
+                  onClick={() => onToggle(post.id)}
+                >
+                  {isOpen ? 'Close' : 'Open'}
+                </button>
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   </div>

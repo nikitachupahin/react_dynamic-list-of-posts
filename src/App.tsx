@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/indent */
+import classNames from 'classnames';
+import React, { useEffect, useMemo, useState } from 'react';
+
 import 'bulma/css/bulma.css';
 import '@fortawesome/fontawesome-free/css/all.css';
 import './App.scss';
@@ -6,61 +10,59 @@ import { PostsList } from './components/PostsList';
 import { PostDetails } from './components/PostDetails';
 import { UserSelector } from './components/UserSelector';
 import { Loader } from './components/Loader';
-import { useEffect, useState } from 'react';
+import { client } from './utils/fetchClient';
 import { User } from './types/User';
 import { Post } from './types/Post';
 
-import * as userService from './api/users';
-import * as postService from './api/posts';
-import classNames from 'classnames';
-
-export const App = () => {
+export const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
   const [posts, setPosts] = useState<Post[]>([]);
+  const [isPostsLoading, setIsPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState<string | null>(null);
 
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
 
   useEffect(() => {
-    setError(false);
+    setIsUsersLoading(true);
+    setUsersError(null);
 
-    userService
-      .getUsers()
+    client
+      .get<User[]>('/users')
       .then(setUsers)
-      .catch(() => setError(true));
+      .catch(() => setUsersError('Failed to load users'))
+      .finally(() => setIsUsersLoading(false));
   }, []);
 
-  const handleUserSelect = (userId: number) => {
-    const user = users.find(u => u.id === userId);
+  useEffect(() => {
+    if (!selectedUserId) {
+      setPosts([]);
+      setSelectedPostId(null);
+      setIsPostsLoading(false);
+      setPostsError(null);
 
-    if (!user) {
       return;
     }
 
-    setSelectedUser(user);
-    setPosts([]);
-    setSelectedPost(null);
-    setError(false);
+    setIsPostsLoading(true);
+    setPostsError(null);
+    setSelectedPostId(null);
 
-    setLoading(true);
-
-    postService
-      .getUserPosts(userId)
+    client
+      .get<Post[]>(`/posts?userId=${selectedUserId}`)
       .then(setPosts)
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  };
+      .catch(() => setPostsError('Failed to load posts'))
+      .finally(() => setIsPostsLoading(false));
+  }, [selectedUserId]);
 
-  const handlePostSelect = (post: Post) => {
-    if (selectedPost && selectedPost.id === post.id) {
-      setSelectedPost(null);
-    } else {
-      setSelectedPost(post);
-    }
-  };
+  const selectedPost = useMemo(
+    () => posts.find(p => p.id === selectedPostId) || null,
+    [posts, selectedPostId],
+  );
 
   return (
     <main className="section">
@@ -71,19 +73,22 @@ export const App = () => {
               <div className="block">
                 <UserSelector
                   users={users}
-                  selectedUser={selectedUser}
-                  onSelect={handleUserSelect}
+                  selectedUserId={selectedUserId}
+                  onChange={setSelectedUserId}
+                  disabled={isUsersLoading && users.length === 0}
+                  loading={isUsersLoading}
+                  error={usersError}
                 />
               </div>
 
               <div className="block" data-cy="MainContent">
-                {!selectedUser && !error && (
+                {!selectedUserId && (
                   <p data-cy="NoSelectedUser">No user selected</p>
                 )}
 
-                {loading && <Loader />}
+                {isPostsLoading && <Loader />}
 
-                {error && (
+                {!isPostsLoading && postsError && (
                   <div
                     className="notification is-danger"
                     data-cy="PostsLoadingError"
@@ -92,17 +97,27 @@ export const App = () => {
                   </div>
                 )}
 
-                {posts.length === 0 && !loading && selectedUser && !error && (
-                  <div className="notification is-warning" data-cy="NoPostsYet">
-                    No posts yet
-                  </div>
-                )}
+                {!isPostsLoading &&
+                  !postsError &&
+                  selectedUserId &&
+                  posts.length === 0 && (
+                    <div
+                      className="notification is-warning"
+                      data-cy="NoPostsYet"
+                    >
+                      No posts yet
+                    </div>
+                  )}
 
-                {posts.length > 0 && (
+                {!isPostsLoading && !postsError && posts.length > 0 && (
                   <PostsList
                     posts={posts}
-                    selectedPost={selectedPost}
-                    onSelect={handlePostSelect}
+                    selectedPostId={selectedPostId}
+                    onToggle={postId =>
+                      setSelectedPostId(curr =>
+                        curr === postId ? null : postId,
+                      )
+                    }
                   />
                 )}
               </div>
@@ -116,14 +131,14 @@ export const App = () => {
               'is-parent',
               'is-8-desktop',
               'Sidebar',
-              { 'Sidebar--open': selectedPost },
+              { 'Sidebar--open': Boolean(selectedPostId) },
             )}
           >
-            {selectedPost && (
-              <div className="tile is-child box is-success ">
-                <PostDetails selectedPost={selectedPost} />
-              </div>
-            )}
+            <div className="tile is-child box is-success ">
+              {selectedPost && (
+                <PostDetails post={selectedPost} key={selectedPost.id} />
+              )}
+            </div>
           </div>
         </div>
       </div>
